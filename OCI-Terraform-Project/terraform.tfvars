@@ -1,0 +1,16 @@
+ tenancy_ocid        = "ocid1.tenancy.oc1.."//Enter your tenancy ocid here
+ Training-Project_name = "Training-Project"
+  Training-Project_description = "Training-Project compartment"
+  create_internet_gateway = true
+create_nat_gateway = true
+ cidr_block = "10.250.0.0/16"
+ vcn_cidr = "10.250.0.0/16"
+ subnet_cidr_block = "10.250.2.0/24" 
+vcn_display_name = "vcn1"
+ label_prefix = "STG"
+ internet_gateway_display_name= "internet1"
+ nat_gateway_display_name = "nat1"
+ public_sn_cidr = "10.250.2.0/24"
+ public_sn_display_name="pubSN"
+ subnet_count = "1"
+route_table_name = "internet_gateway_route_table"
