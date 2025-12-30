@@ -43,3 +43,6 @@ variable "vcn_cidr" {
 variable "vcn_display_name" {
   
 }
+variable "shape_load_balancer" {
+  
+}

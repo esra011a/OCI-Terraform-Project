@@ -207,6 +207,30 @@ module "compute" {
   source_type = each.value.source_type
   
 }
+
+module "load_balancer" {
+  source = "./modules/load_balancer"
+  compartment_id = oci_identity_compartment.Training-Project.id
+  subnet_ids = [module.vcn.publicSubnet_id]
+  is_private= false
+  display_name ="public-lb"
+  backend_set_name ="backend-set"
+  lb_policy ="ROUND_ROBIN"
+  health_protocol ="HTTP"
+  health_url_path ="/"
+  backend_port =80
+  linux_backend_ip = local.instances["Linux-VM"].private_ip
+  windows_backend_ip = local.instances["Windows-VM"].private_ip
+  listener_protocol ="HTTP"
+  listener_port =443
+  listener_name ="https-listener"
+  rule_set_names = ["geo-restriction"]
+  shape=var.shape_load_balancer
+  certificate_name = "RUA-Wildcard-DigiCert"
+  health_port = 80
+  geo_rule_set_name  = "geo-restriction"
+  geo_country_code   = "SA" // Saudi Arabia
+}
 resource "oci_bastion_bastion" "bastion" {
   bastion_type    = "STANDARD"
   compartment_id  = oci_identity_compartment.Training-Project.id
@@ -218,7 +242,107 @@ resource "oci_bastion_bastion" "bastion" {
 output "bastion_id" {
   value = oci_bastion_bastion.bastion.id
 }
+resource "oci_identity_policy" "Training-Project-Policy" {
+  compartment_id = oci_identity_compartment.Training-Project.id
+  name           = "Training-Project-Policy"
+  description    = "Policy for Training Project compartment"
 
+  statements = [
+    "Allow group Administrators to manage all-resources in compartment Training-Project",
+    "Allow group Administrators to manage file-family in compartment Training-Project"
+  ]
+}
+
+data "oci_identity_availability_domains" "ads" {
+  compartment_id = var.tenancy_ocid
+}
+
+
+
+resource "oci_file_storage_file_system" "training_fs" {//1st
+
+  availability_domain = "JEDDAH-1-AD-1"
+
+  //availability_domain = "JEDDAH-1-AD-1"
+
+  compartment_id      = oci_identity_compartment.Training-Project.id
+
+  display_name        = "Training-FS"
+
+}
+
+
+resource "oci_file_storage_mount_target" "training_mt" {//2nd
+
+  compartment_id      = oci_identity_compartment.Training-Project.id
+availability_domain ="JEDDAH-1-AD-1"
+
+  //availability_domain = "ME-JEDDAH-1-AD-1"
+
+  subnet_id           = module.vcn.subnet_B_id //Linux subnet
+
+  display_name        = "Training-MT"
+  ip_address = "10.250.1.10"
+
+}
+
+
+resource "oci_file_storage_export" "training_export" {//3rd
+
+  export_set_id = oci_file_storage_mount_target.training_mt.export_set_id
+
+  file_system_id = oci_file_storage_file_system.training_fs.id
+
+  path = "/training"
+
+  
+
+  export_options {
+
+    source = "10.250.1.3/32" //Linux VM private IP
+
+    access = "READ_WRITE"
+
+    identity_squash = "ROOT"
+
+    anonymous_gid = 65534
+
+    anonymous_uid = 65534
+
+  }
+
+} 
+
+
+resource "oci_monitoring_alarm" "lb_health_alarm" {
+  compartment_id = oci_identity_compartment.Training-Project.id
+  is_enabled = true
+  display_name   = "LB Health Alarm"
+  metric_compartment_id = oci_identity_compartment.Training-Project.id  
+  namespace      = "oci_load_balancer"
+  query          = "HttpCode_Backend_5xx[1m].sum() > 0"
+  severity       = "CRITICAL"
+  destinations   = [oci_ons_notification_topic.alert_topic.id]
+}
+
+resource "oci_ons_notification_topic" "alert_topic" {
+  compartment_id = oci_identity_compartment.Training-Project.id
+  name           = "Alert-Topic"
+  description    = "Notification topic for monitoring alerts"
+}
+
+
+
+resource "oci_monitoring_alarm" "cpu_alarm" {
+  compartment_id = oci_identity_compartment.Training-Project.id
+  display_name   = "Compute CPU Alarm"
+  is_enabled = true
+  metric_compartment_id = oci_identity_compartment.Training-Project.id
+  namespace      = "oci_computeagent"
+  query          = "CpuUtilization[1m].mean() > 80"
+  severity       = "CRITICAL"
+  destinations   = [oci_ons_notification_topic.alert_topic.id]
+}
 
 
 

@@ -14,3 +14,6 @@ vcn_display_name = "vcn1"
  public_sn_display_name="pubSN"
  subnet_count = "1"
 route_table_name = "internet_gateway_route_table"
+ shape_load_balancer="flexible"
+
+    

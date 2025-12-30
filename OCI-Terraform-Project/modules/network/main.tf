@@ -67,7 +67,12 @@ resource "oci_core_security_list" "public-sec-list" {
   compartment_id = var.compartment_id
   vcn_id         = oci_core_vcn.vcn.id
   display_name   = "public-security-list"
-
+  egress_security_rules {
+    stateless        = false
+    destination_type = "CIDR_BLOCK"
+    protocol         = "all"
+    destination      = "0.0.0.0/0"
+  }
   ingress_security_rules {
     stateless   = false
     source_type = "CIDR_BLOCK"
